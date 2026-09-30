@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+cache.db
+secret.key
+firebase-service-account.json
+.env
+.env.local
+*.log
+.gstack/
+.impeccable/
+
+frontend/node_modules/
+frontend/.next/
+frontend/out/

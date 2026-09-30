@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sentence-transformers
+numpy
+anthropic
+openai
+cryptography
+pydantic
+firebase-admin
+PyJWT
+python-dotenv
