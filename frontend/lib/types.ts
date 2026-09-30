@@ -39,3 +39,15 @@ export interface ApiKeyInfo {
   created_at: string;
   active: boolean;
 }
+
+export interface ApiTokenInfo {
+  id: string;
+  name: string;
+  prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+export interface CreatedApiToken extends ApiTokenInfo {
+  token: string;
+}

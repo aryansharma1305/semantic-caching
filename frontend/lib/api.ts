@@ -1,4 +1,11 @@
-import { ApiKeyInfo, ProviderInfo, QueryLogRow, Stats } from "./types";
+import {
+  ApiKeyInfo,
+  ApiTokenInfo,
+  CreatedApiToken,
+  ProviderInfo,
+  QueryLogRow,
+  Stats,
+} from "./types";
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8321";
@@ -85,6 +92,34 @@ export function setActiveProvider(
   token: string | null,
 ): Promise<{ active_provider: string }> {
   return postJSON("/settings/active-provider", { provider }, token);
+}
+
+export function fetchTokens(token: string | null): Promise<ApiTokenInfo[]> {
+  return getJSON<ApiTokenInfo[]>("/settings/tokens", token);
+}
+
+// The plaintext `token` field in the response is shown to the user exactly once —
+// there is no retrieval endpoint for it. Same discipline as saveApiKey above: the
+// caller must not persist it anywhere beyond the moment it's displayed/copied.
+export function createToken(
+  name: string,
+  token: string | null,
+): Promise<CreatedApiToken> {
+  return postJSON("/settings/tokens", { name }, token);
+}
+
+export async function deleteToken(
+  tokenId: string,
+  token: string | null,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/settings/tokens/${tokenId}`, {
+    method: "DELETE",
+    cache: "no-store",
+    headers: authHeaders(token),
+  });
+  if (!res.ok) {
+    throw new Error(`delete token ${tokenId} responded ${res.status}`);
+  }
 }
 
 export async function checkHealth(): Promise<boolean> {

@@ -24,6 +24,7 @@ from app.db import (
 from app.embeddings import embed
 from app.router import answer_query
 from app.semantic_cache import lookup
+from app.tokens import generate_token, list_tokens, revoke_token
 
 app = FastAPI(title="Semantic Caching & Cost-Aware Router")
 
@@ -43,6 +44,10 @@ class QueryRequest(BaseModel):
 class ApiKeyRequest(BaseModel):
     provider: str
     api_key: str
+
+
+class CreateTokenRequest(BaseModel):
+    name: str = "Default"
 
 
 class ActiveProviderRequest(BaseModel):
@@ -238,3 +243,31 @@ def set_active_provider(
         )
     set_setting(user_id, "active_provider", req.provider)
     return {"active_provider": req.provider}
+
+
+# --- Product API tokens -------------------------------------------------------------
+# Distinct from the provider keys above: these authenticate a caller of POST /query as
+# an alternative to a Clerk session JWT, so a user's own backend can call this API
+# without a browser session (see app/tokens.py, app/auth.py). Same rule as provider
+# keys: the plaintext token is returned exactly once, at creation, and never again.
+
+
+@app.post("/settings/tokens")
+def create_token(
+    req: CreateTokenRequest, user_id: str = Depends(get_current_user_id)
+) -> dict:
+    return generate_token(user_id, req.name)
+
+
+@app.get("/settings/tokens")
+def get_tokens(user_id: str = Depends(get_current_user_id)) -> list[dict]:
+    return list_tokens(user_id)
+
+
+@app.delete("/settings/tokens/{token_id}")
+def remove_token(
+    token_id: str, user_id: str = Depends(get_current_user_id)
+) -> dict:
+    if not revoke_token(user_id, token_id):
+        raise HTTPException(status_code=404, detail="Token not found")
+    return {"id": token_id, "revoked": True}

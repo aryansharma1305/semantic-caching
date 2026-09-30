@@ -21,6 +21,9 @@ export function LandingNav() {
           <a href="#security" className="transition hover:text-fg">
             Security
           </a>
+          <Link href="/docs" className="transition hover:text-fg">
+            Docs
+          </Link>
         </nav>
 
         <div className="flex items-center gap-3">

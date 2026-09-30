@@ -11,6 +11,14 @@ from app.firebase_client import get_db
 #   users/{clerkUserId}/queries/{autoId}     -> {ts, query, embedding, answer, cache_hit,
 #                                                 model_used, input_tokens, output_tokens,
 #                                                 cost_usd, latency_ms}
+#   users/{clerkUserId}/appTokens/{sha256Hex} -> {name, prefix, created_at, last_used_at}
+#     (per-user listing — the doc id doubles as the hash so revoke can delete both copies
+#     by the same id)
+#   apiTokenIndex/{sha256Hex}                 -> {user_id}
+#     (top-level, unscoped by design — this is the O(1) lookup a bare request token
+#     resolves through *before* we know which user it belongs to; every other read/write
+#     in this file is scoped under a verified user_id, this collection is the one
+#     exception because resolving the user_id is its entire job)
 
 
 def _user_ref(user_id: str):
@@ -104,6 +112,48 @@ def list_api_keys(user_id: str) -> list[dict]:
 
 def delete_api_key(user_id: str, provider: str) -> None:
     _user_ref(user_id).collection("apiKeys").document(provider).delete()
+
+
+def create_app_token(user_id: str, token_hash: str, prefix: str, name: str) -> dict:
+    record = {
+        "name": name,
+        "prefix": prefix,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "last_used_at": None,
+    }
+    _user_ref(user_id).collection("appTokens").document(token_hash).set(record)
+    get_db().collection("apiTokenIndex").document(token_hash).set({"user_id": user_id})
+    return {"id": token_hash, **record}
+
+
+def list_app_tokens(user_id: str) -> list[dict]:
+    docs = _user_ref(user_id).collection("appTokens").stream()
+    return [{"id": d.id, **d.to_dict()} for d in docs]
+
+
+def revoke_app_token(user_id: str, token_hash: str) -> bool:
+    """Returns False without deleting anything if this token doesn't belong to
+    user_id — never trust a client-supplied token id enough to delete the global
+    index entry without first confirming the per-user doc (proof of ownership)."""
+    user_doc_ref = _user_ref(user_id).collection("appTokens").document(token_hash)
+    if not user_doc_ref.get().exists:
+        return False
+    user_doc_ref.delete()
+    get_db().collection("apiTokenIndex").document(token_hash).delete()
+    return True
+
+
+def resolve_app_token(token_hash: str) -> str | None:
+    doc = get_db().collection("apiTokenIndex").document(token_hash).get()
+    if not doc.exists:
+        return None
+    return doc.to_dict()["user_id"]
+
+
+def touch_app_token(user_id: str, token_hash: str) -> None:
+    _user_ref(user_id).collection("appTokens").document(token_hash).set(
+        {"last_used_at": datetime.now(timezone.utc).isoformat()}, merge=True
+    )
 
 
 def set_setting(user_id: str, key: str, value: str) -> None:

@@ -4,6 +4,8 @@ import jwt
 from fastapi import HTTPException, Request
 from jwt import PyJWKClient
 
+from app.tokens import TOKEN_PREFIX, resolve_token
+
 CLERK_JWKS_URL = os.environ["CLERK_JWKS_URL"]
 CLERK_ISSUER = os.environ["CLERK_ISSUER"]
 
@@ -12,13 +14,20 @@ _jwks_client = PyJWKClient(CLERK_JWKS_URL)
 
 
 def get_current_user_id(request: Request) -> str:
-    """FastAPI dependency: verifies the Clerk session JWT from the Authorization header
-    against Clerk's JWKS and returns the verified user id (`sub` claim). Never trusts a
-    user id supplied in the request body/params — this is the only source of identity."""
+    """FastAPI dependency: resolves the verified user id from the Authorization header,
+    either a Clerk session JWT (browser/dashboard use) or a product-level API token
+    (server-to-server use — see app/tokens.py). Never trusts a user id supplied in the
+    request body/params — this is the only source of identity."""
     auth_header = request.headers.get("authorization", "")
     if not auth_header.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing bearer token")
     token = auth_header[len("bearer "):].strip()
+
+    if token.startswith(TOKEN_PREFIX):
+        user_id = resolve_token(token)
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid or revoked API token")
+        return user_id
 
     try:
         signing_key = _jwks_client.get_signing_key_from_jwt(token)

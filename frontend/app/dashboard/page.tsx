@@ -9,6 +9,7 @@ import { LatencyComparison } from "@/components/LatencyComparison";
 import { ModelBreakdown } from "@/components/ModelBreakdown";
 import { QueriesFeed } from "@/components/QueriesFeed";
 import { SettingsPanel } from "@/components/SettingsPanel";
+import { ApiTokensPanel } from "@/components/ApiTokensPanel";
 
 export default function DashboardPage() {
   const { stats, queries, state, lastUpdated } = useDashboardData();
@@ -23,11 +24,18 @@ export default function DashboardPage() {
         <Hero state={state} lastUpdated={lastUpdated} />
         <div className="flex items-center gap-3">
           <Link
+            href="/docs"
+            className="rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted transition hover:text-fg"
+          >
+            Docs
+          </Link>
+          <Link
             href="/"
             className="rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted transition hover:text-fg"
           >
             Home
           </Link>
+          <ApiTokensPanel />
           <SettingsPanel />
           <UserButton />
         </div>
